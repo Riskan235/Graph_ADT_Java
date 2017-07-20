@@ -156,6 +156,130 @@ public class Graph<N, E> {
 			return Collections.unmodifiableMap(nodeToChildren.get(node));
 		}
 	}
+
+	/**
+	 * Finds and returns the shortest path between two nodes in a graph. If there are multiple shortest path, the one
+	 * which is lexicographically least will be returned.
+	 * @param graph where the path is looked for
+	 * @param start the start node of the path
+	 * @param end the ending node of the path
+	 * @requires <b>start</b> and <b>end</b> are present in the graph.
+	 * @return a List if there is a valid path between two nodes. Which <b>start</b> is stored in
+	 *         index 0 and <b>end</b> is stored in the last index. All the even indices stores node and
+	 *         odd indices <i>i</i> stores the edge which connects from node <i>i - 1</i> to node <i>i + 1</i>.
+	 *         Returns empty list if <b>start</b> and <b>end</b> are identical and represent in the MarvelPath.
+	 *         Returns <b>null</b> if no path between <b>start</b> or <b>end</b> nodes.
+	 * @throws <b>IllegalArgumentException</b> if either <b>start</b> or <b>end</b> is not present in MarvelPath.
+	 */
+	public static List<String> shortestPath(Graph<String, String> graph, String start, String end) {
+		Queue<String> nodesToVisit = new LinkedList<String>();
+		Map<String, String> nodesToPaths = new HashMap<String, String>();
+		Map<String, String> nodesToParent = new HashMap<String, String>();
+		Set<String> seen = new HashSet<String>();
+		
+		nodesToVisit.add(start);
+		seen.add(start);
+		while (!nodesToVisit.isEmpty()) {
+			String currentNode = nodesToVisit.remove();
+			seen.add(currentNode);
+			if (currentNode.equals(end)) {
+				List<String> path = new ArrayList<String>();
+				path.add(currentNode);
+				while (!currentNode.equals(start)) {
+					path.add(0, nodesToPaths.get(currentNode));
+					currentNode = nodesToParent.get(currentNode);
+					path.add(0, currentNode);
+				}
+				return path;
+			} else {
+				Map<String, Set<String>> childrenWithEdge = graph.getChildren(currentNode);
+				List<String> children = new ArrayList<String>(childrenWithEdge.keySet());
+				Collections.sort(children);
+				for (int i = 0; i < children.size(); i ++) {
+					if (!seen.contains(children.get(i)) && !nodesToVisit.contains(children.get(i))) {
+						Set<String> edges = childrenWithEdge.get(children.get(i));
+						List<String> edgeList = new ArrayList<String>(edges);
+						Collections.sort(edgeList);
+						nodesToPaths.put(children.get(i), edgeList.get(0));
+						nodesToVisit.add(children.get(i));
+						nodesToParent.put(children.get(i), currentNode);
+					}
+				}
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Find and return the least weight path between two nodes <b>start</b> and <b>end</b> in <b>graph</b> with
+	 * 	Dijkstra's Algorithm.
+	 * @param graph which the path would be searched from.
+	 * @param start the starting point of the path we would like to find.
+	 * @param end the end point of the path we would like to find.
+	 * @requires no parameter is null; <b>start</b> and <b>end</b> are present in <b>graph</b>.
+	 * @return a list formatted in special ways that represents the path between <b>start</b> and <b>end</b>. The first
+	 * 	element in returned list would always be <b>start</b> and last would always be <b>end</b>. 
+	 * 		* if list = {start, node1, node2,..., end}, it means that the path starts from <b>start</b>, then node1, then
+	 * 		  node2,..., until <b>end</b>.
+	 * 		* if <b>start</b>.equals(<b>end</b>), then the list would only contain one element, which is <b>start</b>/<b>end</b>
+	 * 		   returns null if there is no valid path between <b>start</b> and <b>end</b> in <b>graph</b>.
+	 */
+	public static <N> List<N> leastWeightedPath(Graph<N, Double> graph, N start, N end) {
+		
+		Map<N, Double> distanceFromStart = new HashMap<N, Double>();
+		Map<N, N> nodeToPrevious = new HashMap<N, N>();
+		Set<N> done = new HashSet<N>();
+		
+		// Use a comparator to sort active list, which nodes with least total distance from front would
+		// be placed to the front of active list.
+		Comparator<N> comparator = (x, y) -> distanceFromStart.get(x).compareTo(distanceFromStart.get(y));
+		Queue<N> active = new PriorityQueue<N>(comparator);
+		
+		// Set up
+		active.add(start);
+		distanceFromStart.put(start, 0.0);
+		nodeToPrevious.put(start, start);
+		
+		while (!active.isEmpty()) {
+			// Removes the node with least total weight from start, now this node is done.
+			N current = active.remove();
+			done.add(current);
+			
+			if (current.equals(end)) {
+				List<N> path = new ArrayList<N>();
+				N currentNode = end;
+				path.add(end);
+				while (!currentNode.equals(start)) {
+					currentNode = nodeToPrevious.get(currentNode);
+					path.add(0, currentNode);
+				}
+				return path;
+			} else {
+				Map<N, Set<Double>> children = graph.getChildren(current);
+				for (N child: children.keySet()) {
+					if (!done.contains(child)) { // Add unexplored nodes to active to be explored
+						double currentDistance = distanceFromStart.get(current) + minWeight(children.get(child)).get(0);
+						if (active.contains(child)) {
+							// If this node is already in the active list, we update its priority if necessary.
+							double previousDistance = distanceFromStart.get(child);
+							if (previousDistance > currentDistance) {
+								// Update priority when the old distance is larger than new distance.
+								nodeToPrevious.put(child, current);
+								distanceFromStart.put(child, currentDistance);
+								active.remove(child);
+								active.add(child);
+							}
+						} else {
+							nodeToPrevious.put(child, current);
+							distanceFromStart.put(child, currentDistance);
+							active.add(child);
+						}
+					}
+				}
+			}
+		}
+		return null;
+	}
 	
 	/**
 	 * Check the representation invariant of this graph.
